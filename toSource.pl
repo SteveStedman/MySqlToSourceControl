@@ -1,15 +1,31 @@
 #!/usr/bin/perl -w 
+# created by Steve Stedman
+#  http://SteveStedman.com
+
 use strict;
 use DBI;
+
+
 my ($database, $user, $pass, $path) = @ARGV;
 
 sub writeFileIfDifferent
 {
 	my($filename, $fileContents) = @_;
-	open(DATA, ">" . $filename) or die "Couldn't open file file.txt, $!";
-	print DATA $fileContents . ";\n";
-	close DATA;
-	print "saved: " . $filename . "\n";
+	my $existing = "";
+	if (-e $filename) 
+	{
+		local $/=undef;
+		open FILE, $filename;
+		$existing = <FILE>;
+		close FILE;
+	}
+	if($fileContents ne $existing)
+	{
+		open(DATA, ">" . $filename) or die "Couldn't open file file.txt, $!";
+		print DATA $fileContents;
+		close DATA;
+		print "saved: " . $filename . "\n";
+	}
 }
 sub saveTables
 {
@@ -26,8 +42,9 @@ sub saveTables
 		{ 
 			my $filename = $path . '/' . $row2[0] . ".table.sql";
 			my $table = $row2[1];
-			$table =~ s/ AUTO_INCREMENT=/\r\nAUTO_INCREMENT=/g;
-			$table =~ s/ DEFAULT CHARSET=/\r\nDEFAULT CHARSET=/g;
+			$table =~ s/ AUTO_INCREMENT=/\nAUTO_INCREMENT=/g;
+			$table =~ s/ DEFAULT CHARSET=/\nDEFAULT CHARSET=/g;
+			$table .= ";\n";
 			writeFileIfDifferent($filename, $table);
 		}
 	}
@@ -46,7 +63,7 @@ sub saveViews
 		if (my @row2 = $sth2->fetchrow_array) 
 		{ 
 			my $filename = $path . '/' . $row2[0] . ".view.sql";
-			writeFileIfDifferent($filename, $row2[1]);
+			writeFileIfDifferent($filename, $row2[1] . ";\n");
 		}
 	}
 }
@@ -64,7 +81,7 @@ sub saveProcedures
 		if (my @row2 = $sth2->fetchrow_array) 
 		{ 
 			my $filename = $path . '/' . $row2[0] . ".procedure.sql";
-			writeFileIfDifferent($filename, $row2[2]);
+			writeFileIfDifferent($filename, $row2[2] . ";\n");
 		}
 	}
 }
@@ -82,7 +99,7 @@ sub saveFunctions
 		if (my @row2 = $sth2->fetchrow_array) 
 		{ 
 			my $filename = $path . '/' . $row2[0] . ".function.sql";
-			writeFileIfDifferent($filename, $row2[2]);
+			writeFileIfDifferent($filename, $row2[2] . ";\n");
 		}
 	}
 }
