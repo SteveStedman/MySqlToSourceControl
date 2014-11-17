@@ -1,83 +1,93 @@
 #!/usr/bin/perl -w 
+use strict;
 use DBI;
 my ($database, $user, $pass, $path) = @ARGV;
 
-$dbh = DBI->connect('dbi:mysql:' . $database, $user, $pass) or die "Connection Error: $DBI::errstr\n";
-
-
-#First Save tables.
-$sql = "show tables;";
-$sth = $dbh->prepare($sql);
-$sth->execute or die "SQL Error: $DBI::errstr\n";
-while (@row = $sth->fetchrow_array) 
-{ 
-	$sql2 = "show create table " . $row[0] . "\n";
-	$sth2 = $dbh->prepare($sql2);
-	$sth2->execute or die "SQL Error: $DBI::errstr\n";
-	if (@row2 = $sth2->fetchrow_array) 
+sub writeFileIfDifferent
+{
+	my($filename, $fileContents) = @_;
+	open(DATA, ">" . $filename) or die "Couldn't open file file.txt, $!";
+	print DATA $fileContents . ";\n";
+	close DATA;
+	print "saved: " . $filename . "\n";
+}
+sub saveTables
+{
+	my($dbh) = @_;
+	my $sql = "show tables;";
+	my $sth = $dbh->prepare($sql);
+	$sth->execute or die "SQL Error: $DBI::errstr\n";
+	while (my @row = $sth->fetchrow_array) 
 	{ 
-		$filename = $path . '/' . $row2[0] . ".table.sql";
-		open(DATA, ">" . $filename) or die "Couldn't open file file.txt, $!";
-		print DATA $row2[1] . ";\n";
-		close DATA;
-		print "saved: " . $filename . "\n";
+		my $sql2 = "show create table " . $row[0] . "\n";
+		my $sth2 = $dbh->prepare($sql2);
+		$sth2->execute or die "SQL Error: $DBI::errstr\n";
+		if (my @row2 = $sth2->fetchrow_array) 
+		{ 
+			my $filename = $path . '/' . $row2[0] . ".table.sql";
+			my $table = $row2[1];
+			$table =~ s/ AUTO_INCREMENT=/\r\nAUTO_INCREMENT=/g;
+			$table =~ s/ DEFAULT CHARSET=/\r\nDEFAULT CHARSET=/g;
+			writeFileIfDifferent($filename, $table);
+		}
 	}
 }
-
-#now dump the views
-$sql = "SHOW FULL TABLES WHERE TABLE_TYPE LIKE 'VIEW';";
-$sth = $dbh->prepare($sql);
-$sth->execute or die "SQL Error: $DBI::errstr\n";
-while (@row = $sth->fetchrow_array) 
-{ 
-	$sql2 = "show create view " . $row[0] . "\n";
-	$sth2 = $dbh->prepare($sql2);
-	$sth2->execute or die "SQL Error: $DBI::errstr\n";
-	if (@row2 = $sth2->fetchrow_array) 
+sub saveViews
+{
+	my($dbh) = @_;
+	my $sql = "SHOW FULL TABLES WHERE TABLE_TYPE LIKE 'VIEW';";
+	my $sth = $dbh->prepare($sql);
+	$sth->execute or die "SQL Error: $DBI::errstr\n";
+	while (my @row = $sth->fetchrow_array) 
 	{ 
-		$filename = $path . '/' . $row2[0] . ".view.sql";
-		open(DATA, ">" . $filename) or die "Couldn't open file file.txt, $!";
-		print DATA $row2[1] . ";\n";
-		close DATA;
-		print "saved: " . $filename . "\n";
+		my $sql2 = "show create view " . $row[0] . "\n";
+		my $sth2 = $dbh->prepare($sql2);
+		$sth2->execute or die "SQL Error: $DBI::errstr\n";
+		if (my @row2 = $sth2->fetchrow_array) 
+		{ 
+			my $filename = $path . '/' . $row2[0] . ".view.sql";
+			writeFileIfDifferent($filename, $row2[1]);
+		}
 	}
 }
-
-#now procedures
-$sql = "SHOW PROCEDURE STATUS;";
-$sth = $dbh->prepare($sql);
-$sth->execute or die "SQL Error: $DBI::errstr\n";
-while (@row = $sth->fetchrow_array) 
-{ 
-	$sql2 = "show create procedure " . $row[1] . "\n";
-	$sth2 = $dbh->prepare($sql2);
-	$sth2->execute or die "SQL Error: $DBI::errstr\n";
-	if (@row2 = $sth2->fetchrow_array) 
+sub saveProcedures
+{
+	my($dbh) = @_;
+	my $sql = "SHOW PROCEDURE STATUS;";
+	my $sth = $dbh->prepare($sql);
+	$sth->execute or die "SQL Error: $DBI::errstr\n";
+	while (my @row = $sth->fetchrow_array) 
 	{ 
-		$filename = $path . '/' . $row2[0] . ".procedure.sql";
-		open(DATA, ">" . $filename) or die "Couldn't open file file.txt, $!";
-		print DATA $row2[2] . ";\n";
-		close DATA;
-		print "saved: " . $filename . "\n";
+		my $sql2 = "show create procedure " . $row[1] . "\n";
+		my $sth2 = $dbh->prepare($sql2);
+		$sth2->execute or die "SQL Error: $DBI::errstr\n";
+		if (my @row2 = $sth2->fetchrow_array) 
+		{ 
+			my $filename = $path . '/' . $row2[0] . ".procedure.sql";
+			writeFileIfDifferent($filename, $row2[2]);
+		}
 	}
 }
-
-#and functions
-$sql = "SHOW FUNCTION STATUS;";
-$sth = $dbh->prepare($sql);
-$sth->execute or die "SQL Error: $DBI::errstr\n";
-while (@row = $sth->fetchrow_array) 
-{ 
-	$sql2 = "show create function " . $row[1] . "\n";
-	$sth2 = $dbh->prepare($sql2);
-	$sth2->execute or die "SQL Error: $DBI::errstr\n";
-	if (@row2 = $sth2->fetchrow_array) 
+sub saveFunctions
+{
+	my($dbh) = @_;
+	my $sql = "SHOW FUNCTION STATUS;";
+	my $sth = $dbh->prepare($sql);
+	$sth->execute or die "SQL Error: $DBI::errstr\n";
+	while (my @row = $sth->fetchrow_array) 
 	{ 
-		$filename = $path . '/' . $row2[0] . ".function.sql";
-		open(DATA, ">" . $filename) or die "Couldn't open file file.txt, $!";
-		print DATA $row2[2] . ";\n";
-		close DATA;
-		print "saved: " . $filename . "\n";
+		my $sql2 = "show create function " . $row[1] . "\n";
+		my $sth2 = $dbh->prepare($sql2);
+		$sth2->execute or die "SQL Error: $DBI::errstr\n";
+		if (my @row2 = $sth2->fetchrow_array) 
+		{ 
+			my $filename = $path . '/' . $row2[0] . ".function.sql";
+			writeFileIfDifferent($filename, $row2[2]);
+		}
 	}
 }
-
+my $dbh = DBI->connect('dbi:mysql:' . $database, $user, $pass) or die "Connection Error: $DBI::errstr\n";
+saveTables($dbh);
+saveViews($dbh);
+saveProcedures($dbh);
+saveFunctions($dbh);
